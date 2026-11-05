@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后厨出品与前厅协作智能体系统 · MVP</title>
+<style>
+  :root { --ink:#1a2233; --sub:#5b6b82; --line:#e3e8f0; --blue:#185fa5; --bg:#f5f7fb; --ok:#0f6e56; --bad:#a32d2d; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); font-size:14px; line-height:1.6; }
+  header { background:#185fa5; color:#fff; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:16px; font-weight:500; }
+  header .who { font-size:13px; opacity:.9; }
+  .wrap { max-width:1080px; margin:16px auto; padding:0 14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  h2 { font-size:15px; color:var(--blue); margin-bottom:10px; border-left:4px solid var(--blue); padding-left:8px; font-weight:500; }
+  label { font-size:13px; color:var(--sub); display:block; margin:8px 0 3px; }
+  input, textarea, select { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:14px; font-family:inherit; }
+  button { background:var(--blue); color:#fff; border:none; border-radius:8px; padding:8px 16px; font-size:14px; cursor:pointer; margin-top:10px; }
+  button.ghost { background:#eef4fa; color:var(--blue); }
+  button.small { padding:3px 10px; font-size:12px; margin:0 3px 0 0; }
+  button.warn { background:var(--bad); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  th { background:#f0f4fa; white-space:nowrap; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .dim { color:var(--sub); font-size:12.5px; }
+  .msg { border-radius:8px; padding:8px 12px; margin-top:8px; font-size:13.5px; }
+  .msg.ok { background:#e1f5ee; color:var(--ok); } .msg.bad { background:#fcebeb; color:var(--bad); }
+  .msg.info { background:#e6f1fb; color:var(--blue); }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs button { margin:0; }
+  .tabs .tab { background:#fff; color:var(--sub); border:1px solid var(--line); }
+  .tabs .tab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:760px){ .row2 { grid-template-columns:1fr; } }
+  .score { font-weight:500; color:#854f0b; }
+  .badge { display:inline-block; border-radius:99px; padding:0 8px; font-size:11.5px; background:#eef4fa; color:var(--blue); }
+  .badge.blocked { background:#fcebeb; color:var(--bad); }
+  .badge.cooking { background:#faeeda; color:#854f0b; }
+  .badge.done { background:#e1f5ee; color:var(--ok); }
+  .login { max-width:380px; margin:80px auto; }
+  .cite { font-size:12px; color:var(--sub); margin-top:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>后厨出品与前厅协作智能体系统 <span style="opacity:.7;font-size:12px">MVP</span></h1>
+  <div class="who" id="who"></div>
+</header>
+<div class="wrap">
+
+<div class="card login" id="loginCard">
+  <h2>登录</h2>
+  <label>用户名</label><input id="username" value="qianting">
+  <label>口令</label><input id="password" type="password" value="123456">
+  <button onclick="login()">登录</button>
+  <div class="dim" style="margin-top:8px">管理员：admin / admin123 · 员工：qianting 或 chushi / 123456</div>
+  <div id="loginMsg"></div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="tabs">
+    <button class="tab active" data-tab="order" onclick="switchTab('order')">下单</button>
+    <button class="tab" data-tab="board" onclick="switchTab('board')">档口看板</button>
+    <button class="tab" data-tab="qa" onclick="switchTab('qa')">知识库问答</button>
+    <button class="tab" data-tab="admin" onclick="switchTab('admin')" id="adminTab" style="display:none">管理员</button>
+  </div>
+
+  <div id="tab-order">
+    <div class="row2">
+      <div class="card">
+        <h2>新建订单（单据归一：系统单 / 纸质单 / 口述 / 外卖）</h2>
+        <label>来源</label>
+        <select id="src">
+          <option value="system">系统单</option><option value="paper">纸质单</option>
+          <option value="voice">电话口述</option><option value="takeout">外卖</option>
+        </select>
+        <label>桌号（可留空，由文本解析）</label><input id="table" placeholder="如 5（外卖单留空）">
+        <label>单据文本（纸质/口述直接贴原文）</label>
+        <textarea id="raw" rows="5" placeholder="例：5号桌，一份宫保鸡丁不要辣，一份蒜蓉西兰花，客人对花生过敏"></textarea>
+        <button onclick="createOrder()">提交订单</button>
+        <div id="orderMsg"></div>
+      </div>
+      <div class="card">
+        <h2>最近订单</h2>
+        <table id="ordersT"><tr><th>单号</th><th>桌</th><th>来源</th><th>状态</th><th>置信度</th><th>操作</th></tr></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-board" style="display:none">
+    <div class="card" id="patrolCard" style="display:none;border-color:#f5d38f;background:#fffdf5">
+      <h2 style="color:#8a5a00;border-color:#c98a2b">巡检预警 <span class="dim">（巡检 Agent 自主发现，只读不写业务数据）</span></h2>
+      <div id="patrolList"></div>
+    </div>
+    <div class="card">
+      <h2>档口看板 <span class="dim">（确定性计分：过敏P0+100 ＞ 催菜+40/次 ＞ 外卖+10 ＞ 等待+2/分钟 ＞ 档口压力+1；每条带理由）</span></h2>
+      <table id="boardT"><tr><th>顺位</th><th>菜名</th><th>桌号</th><th>档口</th><th>分数</th><th>排序理由</th><th>状态</th><th>操作</th></tr></table>
+      <div class="dim" style="margin-top:6px">每 2 秒自动刷新</div>
+    </div>
+  </div>
+
+  <div id="tab-qa" style="display:none">
+    <div class="card">
+      <h2>工艺卡知识库问答（向量化检索）</h2>
+      <label>问题</label>
+      <input id="q" placeholder="例：红烧肉的标准制作时间是多少？宫保鸡丁含什么过敏原？">
+      <button onclick="askQA()">提问</button>
+      <div id="qaOut"></div>
+    </div>
+  </div>
+
+  <div id="tab-admin" style="display:none">
+    <div class="row2">
+      <div class="card">
+        <h2>上传知识库文档（管理员发布后对员工可见）</h2>
+        <label>标题</label><input id="docTitle" placeholder="例：工艺卡总表 v2">
+        <label>类型</label>
+        <select id="docType"><option>工艺卡</option><option>食安制度</option></select>
+        <label>内容</label><textarea id="docContent" rows="6" placeholder="一段一段写，系统自动切分并向量化"></textarea>
+        <button onclick="uploadDoc()">发布文档</button>
+        <div id="docMsg"></div>
+      </div>
+      <div class="card">
+        <h2>人工修复队列 <span class="dim">（低置信度 / 过敏BLOCK / 未知菜品）</span></h2>
+        <table id="repairT"><tr><th>单号</th><th>原因</th><th>详情</th><th>责任人</th><th>时效</th><th>状态</th></tr></table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>审计留痕（只追加事件流） <span class="dim">按单号过滤可重建整条处理链</span></h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="auditBiz" placeholder="单号（留空看最近100条）" style="flex:1">
+        <button class="ghost" onclick="loadAudit()">查询</button>
+      </div>
+      <table id="auditT" style="margin-top:8px"><tr><th>时间</th><th>单号</th><th>事件</th><th>操作人</th><th>载荷</th></tr></table>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+let TOKEN = localStorage.getItem("kag_token") || "";
+let ME = JSON.parse(localStorage.getItem("kag_me") || "null");
+let TAB = "order";
+
+async function api(path, method="GET", body) {
+  const opt = { method, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + TOKEN } };
+  if (body !== undefined) opt.body = JSON.stringify(body);
+  const resp = await fetch(path, opt);
+  let data; try { data = await resp.json(); } catch { data = { error: "响应异常" }; }
+  return { status: resp.status, data };
+}
+
+function show(el, html, cls="info") { el.innerHTML = `<div class="msg ${cls}">${html}</div>`; }
+
+async function login() {
+  const r = await api("/api/login", "POST", { username: v("username"), password: v("password") });
+  if (r.status !== 200) return show($("loginMsg"), r.data.error, "bad");
+  TOKEN = r.data.token; ME = r.data;
+  localStorage.setItem("kag_token", TOKEN); localStorage.setItem("kag_me", JSON.stringify(ME));
+  enter();
+}
+
+function logout() { localStorage.removeItem("kag_token"); localStorage.removeItem("kag_me"); location.reload(); }
+
+function enter() {
+  $("loginCard").style.display = "none"; $("app").style.display = "";
+  $("who").innerHTML = `${ME.username}（${ME.role === "admin" ? "管理员" : "员工" + (ME.station ? "·" + ME.station : "")}） <button class="small ghost" onclick="logout()">退出</button>`;
+  if (ME.role === "admin") $("adminTab").style.display = "";
+  switchTab("order");
+  setInterval(tick, 2000);
+  tick();
+}
+
+function switchTab(name) {
+  TAB = name;
+  document.querySelectorAll(".tabs .tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  for (const t of ["order","board","qa","admin"]) $("tab-" + t).style.display = t === name ? "" : "none";
+  tick();
+}
+
+function v(id){ return document.getElementById(id).value; }
+function $(id){ return document.getElementById(id); }
+
+async function tick() {
+  if (!TOKEN) return;
+  if (TAB === "order") { loadBoard(); loadOrders(); }
+  else if (TAB === "board") loadBoard();
+  else if (TAB === "admin") { loadRepairs(); loadOrders(); }
+}
+
+async function createOrder() {
+  const r = await api("/api/orders", "POST", { source: v("src"), table_no: v("table"), raw_text: v("raw") });
+  const el = $("orderMsg");
+  if (r.status !== 200) return show(el, r.data.error || JSON.stringify(r.data), "bad");
+  const d = r.data;
+  if (d.status === "blocked") {
+    show(el, `<b class="bad">BLOCK 拦截</b>：${d.reason}<br><span class="dim">整单暂停，等待食安主管在管理员页签核放行</span>`, "bad");
+  } else {
+    const notices = (d.notices || []).map(n => `· ${n}`).join("<br>");
+    show(el, `<b class="ok">已受理</b> ${d.biz_no}（解析置信度 ${d.confidence}，${d.provider}）<br>${notices}`, "info");
+  }
+  loadOrders(); loadBoard();
+}
+
+async function loadOrders() {
+  const r = await api("/api/state");
+  if (r.status !== 200) return;
+  const tb = $("ordersT");
+  tb.innerHTML = "<tr><th>单号</th><th>桌</th><th>来源</th><th>状态</th><th>置信度</th><th>操作</th></tr>";
+  const statusMap = { created:"创建", scheduled:"已排菜", blocked:"被拦截", cooking:"制作中", ready:"待上桌", closed:"已结", needs_repair:"待人工", void:"作废" };
+  for (const o of r.data.orders) {
+    const tr = document.createElement("tr");
+    let ops = "";
+    if (o.status === "blocked" && ME.role === "admin") ops += `<button class="small" onclick="act('${o.biz_no}','signoff')">食安签核</button>`;
+    if (["scheduled","cooking"].includes(o.status)) ops += `<button class="small warn" onclick="act('${o.biz_no}','urge')">催菜</button>`;
+    if (o.status === "scheduled") ops += `<button class="small ghost" onclick="act('${o.biz_no}','cook')">开工</button>`;
+    if (o.status === "cooking") ops += `<button class="small ghost" onclick="act('${o.biz_no}','complete')">完工</button>`;
+    if (o.status === "ready") ops += `<button class="small" onclick="act('${o.biz_no}','serve')">上桌结单</button>`;
+    tr.innerHTML = `<td>${o.biz_no}</td><td>${o.table_no || "-"}</td><td>${o.source}</td>
+      <td><span class="badge ${o.status}">${statusMap[o.status] || o.status}</span></td>
+      <td>${o.confidence ?? "-"}</td><td>${ops}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+async function loadBoard() {
+  const r = await api("/api/state");
+  if (r.status !== 200) return;
+  const ws = r.data.warnings || [];
+  if (ws.length) {
+    $("patrolCard").style.display = "";
+    $("patrolList").innerHTML = ws.map(w =>
+      `<div style="margin:3px 0"><span class="badge" style="background:#faeeda;color:#854f0b">${w.time}</span> ${w.message}</div>`).join("");
+  } else {
+    $("patrolCard").style.display = "none";
+  }
+  const tb = $("boardT");
+  tb.innerHTML = "<tr><th>顺位</th><th>菜名</th><th>桌号</th><th>档口</th><th>分数</th><th>排序理由</th><th>状态</th><th>操作</th></tr>";
+  const statusName = { queued:"排队", cooking:"制作中", done:"完成" };
+  r.data.board.forEach((t, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${i + 1}</td><td>${t.dish_name}${t.urge_count ? ` <span class="bad">催×${t.urge_count}</span>` : ""}</td>
+      <td>${t.table_no || "-"}</td><td>${t.station}</td><td class="score">${t.score}</td>
+      <td>${t.reason}</td><td><span class="badge ${t.status}">${statusName[t.status] || t.status}</span></td>
+      <td>${t.status === "queued" ? `<button class="small ghost" onclick="cookOne('${t.biz_no}')">开工</button>` : ""}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function cookOne(biz) { await act(biz, "cook"); }
+
+async function act(biz, action) {
+  const r = await api(`/api/orders/${biz}/${action}`, "POST", {});
+  if (r.data.error) alert(r.data.error);
+  else if (r.data.notice || r.data.notice_text) alert(r.data.notice || r.data.notice_text);
+  tick();
+}
+
+async function askQA() {
+  const r = await api("/api/kb/qa", "POST", { question: v("q") });
+  const el = $("qaOut");
+  if (r.status !== 200) return show(el, r.data.error, "bad");
+  const cites = (r.data.citations || []).map(c => `<div class="cite">来源：${c.doc}（相关度 ${c.score}）：${c.excerpt}…</div>`).join("");
+  el.innerHTML = `<div class="msg info">${r.data.answer}</div>${cites}`;
+}
+
+async function uploadDoc() {
+  const r = await api("/api/kb/documents", "POST", { title: v("docTitle"), doc_type: v("docType"), content: v("docContent") });
+  if (r.status !== 200) return show($("docMsg"), r.data.error, "bad");
+  show($("docMsg"), `已发布：${r.data.title}，切分 ${r.data.chunks} 块并向量化入库`, "ok");
+}
+
+async function loadRepairs() {
+  const r = await api("/api/repairs");
+  if (r.status !== 200) return;
+  const tb = $("repairT");
+  tb.innerHTML = "<tr><th>单号</th><th>原因</th><th>详情</th><th>责任人</th><th>时效</th><th>状态</th></tr>";
+  for (const x of r.data.repairs) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${x.biz_no || "-"}</td><td class="bad">${x.reason}</td><td class="dim">${x.detail}</td>
+      <td>${x.assigned_to}</td><td>${x.deadline}</td><td>${x.status === "open" ? "待处理" : "已解决"}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+async function loadAudit() {
+  const biz = v("auditBiz");
+  const r = await api("/api/audit" + (biz ? `?biz_no=${encodeURIComponent(biz)}` : ""));
+  if (r.status !== 200) return alert(r.data.error);
+  const tb = $("auditT");
+  tb.innerHTML = "<tr><th>时间</th><th>单号</th><th>事件</th><th>操作人</th><th>载荷</th></tr>";
+  for (const e of r.data.events) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${e.time}</td><td>${e.biz_no || "-"}</td><td><span class="badge">${e.event_type}</span></td>
+      <td>${e.actor_id}</td><td class="dim" style="max-width:360px">${JSON.stringify(e.payload)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+if (TOKEN && ME) enter();
+</script>
+</body>
+</html>

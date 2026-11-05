@@ -1,0 +1,15 @@
+# Python 运行产物
+__pycache__/
+*.pyc
+*.pyo
+
+# 运行时数据（SQLite 数据库、审计日志等，clone 后自动生成）
+data/
+*.db
+*.db-journal
+
+# 本地环境与临时文件
+.env
+*.log
+*.tmp
+login_demo.json
