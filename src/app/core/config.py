@@ -7,7 +7,10 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 DB_PATH = os.environ.get("KITCHEN_AGENT_DB", os.path.join(DATA_DIR, "kitchen_agent.db"))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
-PORT = int(os.environ.get("KITCHEN_AGENT_PORT", "8100"))
+# 端口：部署平台注入的 PORT 优先，其次 KITCHEN_AGENT_PORT，默认 8100
+PORT = int(os.environ.get("PORT") or os.environ.get("KITCHEN_AGENT_PORT") or "8100")
+# 绑定地址：部署沙箱（有 PORT 注入）需绑 0.0.0.0；本地默认 127.0.0.1 更安全
+HOST = "0.0.0.0" if os.environ.get("PORT") else os.environ.get("KITCHEN_AGENT_HOST", "127.0.0.1")
 
 # LLM 可替换供应商：不配 Key 全流程离线跑（stub 兜底），配 Key 自动升级
 LLM_API_KEY = os.environ.get("KITCHEN_LLM_API_KEY", "")

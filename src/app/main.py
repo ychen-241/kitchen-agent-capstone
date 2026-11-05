@@ -90,13 +90,13 @@ def main():
     routes.install_notify()
     from .agents import patrol_agent
     patrol_agent.start_loop(get_conn())
-    server = ThreadingHTTPServer(("127.0.0.1", db.config.PORT), Handler)
+    server = ThreadingHTTPServer((db.config.HOST, db.config.PORT), Handler)
     mode = "LLM 模式（已配 Key）" if db.config.LLM_API_KEY else "规则模式（离线，未配 Key）"
     print("=" * 56)
     print(" 后厨出品与前厅协作智能体系统 · MVP")
     print(f" 运行模式：{mode}")
     print(f" 巡检 Agent：每 {db.config.PATROL_INTERVAL_SECONDS} 秒自主巡检（超时/积压/滞留）")
-    print(f" 地址：http://127.0.0.1:{db.config.PORT}")
+    print(f" 地址：http://{db.config.HOST}:{db.config.PORT}")
     print(" 账号：admin/admin123（管理员）  qianting/123456（员工）")
     print(" 停止：Ctrl+C")
     print("=" * 56)
